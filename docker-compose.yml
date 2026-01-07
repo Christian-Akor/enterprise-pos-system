@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: pos-postgres
+    environment:
+      POSTGRES_DB: pos_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - pos-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: pos-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - pos-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pos-backend
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: pos_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - pos-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: pos-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - pos-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  pos-network:
+    driver: bridge
